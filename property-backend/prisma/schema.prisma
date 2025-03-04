@@ -1,0 +1,53 @@
+// datasource for MySQL
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// generator for prisma client
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Enum for User roles
+enum Role {
+  ADMIN
+  SALES
+}
+
+// Enum for Shop status (AVAILABLE or SOLD)
+enum ShopStatus {
+  AVAILABLE
+  SOLD
+}
+
+// Model for Users (Admins and Sales)
+model User {
+  id       String  @id @default(uuid()) // User ID
+  email    String  @unique // Unique email for user login
+  password String  // User password
+  role     Role    @default(ADMIN) // Default role is ADMIN
+  createdAt DateTime @default(now()) // Timestamp for when user was created
+}
+
+// Model for Floors
+model Floor {
+  id          String  @id @default(uuid()) // Unique ID for floor
+  name        String  // Name of the floor (e.g., "First Floor")
+  floorNumber Int     // Numeric value for the floor (e.g., 1, 2, 3)
+  shops       Shop[]  // Relation to shops available in the floor
+}
+
+// Model for Shops (rooms available for sale)
+model Shop {
+  id          String     @id @default(uuid()) // Unique ID for the shop
+  shopNumber  String     // Shop number (e.g., "Shop 1")
+  size        Float      // Size of the shop in square meters
+  status      ShopStatus @default(AVAILABLE) // Shop status (Available or Sold)
+  floorId     String     // Foreign key to the floor
+  floor       Floor      @relation(fields: [floorId], references: [id]) // Relation to Floor
+  createdAt   DateTime   @default(now()) // Timestamp for when the shop was created
+  updatedAt   DateTime   @updatedAt // Timestamp for when the shop was last updated
+}
+
+// Sample relation between User and Shops: Only admins can change the shop status (Available/Sold)
