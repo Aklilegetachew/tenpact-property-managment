@@ -1,0 +1,44 @@
+name: Deploy Node.js Application to cPanel via FTP
+
+on:
+  push:
+    branches:
+      - main # Or the branch you'd like to trigger the deployment on
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest # GitHub Actions runner
+
+    steps:
+      # Step 1: Checkout the repository
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      # Step 2: Set up Node.js (and your version)
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: "16" # Choose the Node.js version you need
+
+      # Step 3: Install dependencies
+      - name: Install dependencies
+        run: npm install
+
+      # Step 4: Run build (if required)
+      - name: Build the app
+        run: npm run build # This step is only if your app needs to be built
+
+      # Step 5: Upload to cPanel via FTP
+      - name: Deploy to cPanel via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4
+        with:
+          ftp-server: ${{ secrets.FTP_SERVER }} # Your FTP server (e.g., ftp.yoursite.com)
+          ftp-username: ${{ secrets.FTP_USERNAME }} # Your FTP username
+          ftp-password: ${{ secrets.FTP_PASSWORD }} # Your FTP password
+          local-dir: ./ # The directory you want to deploy (e.g., `./` to deploy the whole repo)
+          remote-dir: /public_html/your_app # The remote directory on cPanel where your app will be deployed
+          git-ftp-args: --insecure # Optional: in case your FTP server uses an insecure connection
+
+      # Step 6: Clean up (optional)
+      - name: Cleanup
+        run: npm run clean # (optional) Add a script to clean up your project if needed

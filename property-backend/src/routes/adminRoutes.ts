@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { Request, Response } from "express-serve-static-core";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, ShopStatus } from "@prisma/client";
 import { FloorRequest, ShopRequest } from "../types";
 
 import bcrypt from "bcryptjs";
@@ -40,25 +40,25 @@ adminRouter.post("/shops", async (req: Request, res: Response) => {
         floorId,
       },
     });
+
+    console.log(newShop);
     res.status(201).json(newShop);
   } catch (error) {
+    console.log(error);
     res.status(500).json({ error: "Error creating shop" });
   }
 });
 
-// Route for deleting a Floor
 adminRouter.delete("/floors/:id", async (req: Request, res: Response) => {
   const id: string = req.params.id;
 
   try {
-    // First, delete all shops associated with this floor
     await prisma.shop.deleteMany({
       where: {
         floorId: id,
       },
     });
 
-    // Now delete the floor itself
     const deletedFloor = await prisma.floor.delete({
       where: {
         id,
@@ -118,8 +118,8 @@ adminRouter.put("/shops/:id/floor", async (req: Request, res: Response) => {
 // Route for editing Shop Availability (Available or Sold)
 adminRouter.put("/shops/:id/status", async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { status } = req.body; // New status (AVAILABLE or SOLD)
-
+  const { status } = req.body;
+  console.log("id", id);
   try {
     // Update the shop's availability status
     const updatedShop = await prisma.shop.update({
@@ -265,18 +265,18 @@ adminRouter.post("/login", async (req: Request, res: Response) => {
     });
 
     if (!user) {
-       res.status(404).json({ error: "User not found" });
+      res.status(404).json({ error: "User not found" });
     }
 
     // Check if the user is an admin
     if (user?.role !== "ADMIN") {
-       res.status(403).json({ error: "Not authorized" });
+      res.status(403).json({ error: "Not authorized" });
     }
 
     // Compare password with stored hashed password
     const isPasswordValid = await bcrypt.compare(password, user!.password);
     if (!isPasswordValid) {
-       res.status(401).json({ error: "Invalid credentials" });
+      res.status(401).json({ error: "Invalid credentials" });
     }
 
     // Generate JWT token for the admin
@@ -290,6 +290,121 @@ adminRouter.post("/login", async (req: Request, res: Response) => {
     res.status(200).json({ token });
   } catch (error) {
     res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+adminRouter.get("/shops/count", async (req: Request, res: Response) => {
+  try {
+    const totalShops = await prisma.shop.count();
+    res.json({ totalShops });
+  } catch (error) {
+    res.status(500).json({ error: "Error fetching shop count" });
+  }
+});
+
+// 📌 2️⃣ Get total number of floors
+adminRouter.get(
+  "/floors/count",
+
+  async (req: Request, res: Response) => {
+    try {
+      const totalFloors = await prisma.floor.count();
+      console.log(totalFloors);
+      res.json({ totalFloors });
+    } catch (error) {
+      res.status(500).json({ error: "Error fetching floor count" });
+    }
+  }
+);
+
+// 📌 3️⃣ Get total number of users
+adminRouter.get(
+  "/users/count",
+
+  async (req: Request, res: Response) => {
+    try {
+      const totalUsers = await prisma.user.count();
+      res.json({ totalUsers });
+    } catch (error) {
+      res.status(500).json({ error: "Error fetching user count" });
+    }
+  }
+);
+
+// 📌 4️⃣ Get number of available shops
+adminRouter.get(
+  "/shops/available/count",
+  async (req: Request, res: Response) => {
+    try {
+      const status = ShopStatus.AVAILABLE;
+      const availableShops = await prisma.shop.count({
+        where: { status },
+      });
+      res.json({ availableShops });
+    } catch (error) {
+      res.status(500).json({ error: "Error fetching available shop count" });
+    }
+  }
+);
+
+// 📌 5️⃣ Get number of sold shops
+adminRouter.get("/shops/sold/count", async (req: Request, res: Response) => {
+  try {
+    const status = ShopStatus.SOLD;
+    const soldShops = await prisma.shop.count({
+      where: { status },
+    });
+    res.json({ soldShops });
+  } catch (error) {
+    res.status(500).json({ error: "Error fetching sold shop count" });
+  }
+});
+
+adminRouter.put("/shops/:id", async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { shopNumber, floorId, size } = req.body; // Expecting new values
+
+  try {
+    // Update the shop's details
+    const updatedShop = await prisma.shop.update({
+      where: { id },
+      data: {
+        shopNumber,
+        size,
+        floor: {
+          connect: { id: floorId }, // Linking to the Floor table
+        },
+      },
+    });
+
+    res.status(200).json({
+      message: "Shop details updated successfully",
+      updatedShop,
+    });
+  } catch (error) {
+    console.error("Error updating shop details:", error);
+    res.status(500).json({ error: "Error updating shop details" });
+  }
+});
+
+adminRouter.get("/shops/sold", async (req: Request, res: Response) => {
+  try {
+    // Update the shop's details
+    const soldShops = await prisma.shop.findMany({
+      where: {
+        status: ShopStatus.SOLD,
+      },
+      include: { floor: true },
+    });
+
+    if (soldShops.length === 0) {
+      res.status(404).json({ message: "No sold shops found" });
+    }
+
+    res.status(200).json(soldShops);
+  } catch (error) {
+    console.error("Error updating shop details:", error);
+    res.status(500).json({ error: "Error updating shop details" });
   }
 });
 
